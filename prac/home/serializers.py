@@ -28,6 +28,7 @@ class PeopleSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
+    username = serializers.CharField()
 
 class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -42,6 +43,7 @@ class RegisterSerializer(serializers.Serializer):
     def create(self,validated_data):
         user = User.objects.create(username=validated_data["username"],email=validated_data["email"])
         user.set_password(validated_data["password"])
+        user.save()
         # ? this will set the password but not show up in db, encrypt the password and then store in db, look into this more
         return validated_data
 

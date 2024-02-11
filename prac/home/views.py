@@ -4,7 +4,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Person
 from .serializers import PeopleSerializer,LoginSerializer,RegisterSerializer
-from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
 
 @api_view(["GET","POST"])
 def index(request):
@@ -48,13 +51,23 @@ def store(request):
         person.delete()
         return Response({"message": "Person deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     
-@api_view(["POST"])
-def login(request):
-    data = request.data
-    serializer = LoginSerializer(data=data)
-    if serializer.is_valid():
-        data = serializer.validated_data
-        return Response({"message":"success"})
+
+class PersonApi(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication]
+    def get(self,request):
+        people = Person.objects.all()
+        serializer = PeopleSerializer(people, many=True)
+        return Response(serializer.data)
+    def post(self,request):
+        serializer = PeopleSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    
    
 class RegisterApi(APIView):
     def post(self,request):
@@ -66,9 +79,13 @@ class RegisterApi(APIView):
         return Response({"message":"user created"},status=status.HTTP_201_CREATED)
 
 class LoginApi(APIView):
-    def post(request):
+    def post(self,request):
         data = request.data
         serializer = LoginSerializer(data=data)
         if serializer.is_valid():
             data = serializer.validated_data
-        return Response({"message":"success"})
+        user = authenticate(username=serializer.data["username"],password=serializer.data["password"],email=serializer.data["email"])
+        if not user:
+            return Response({"error":"invalid creds"},status=status.HTTP_400_BAD_REQUEST)
+        token, _ = Token.objects.get_or_create(user=user)        
+        return Response({"message":"success","token":str(token)})
